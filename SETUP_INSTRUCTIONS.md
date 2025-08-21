@@ -1,278 +1,289 @@
-# Provincial Bills Tracker - Complete Setup Instructions
+# Provincial Scrapy - Setup Instructions
 
-## 🚀 Quick Start Guide
+## Overview
 
-Follow these step-by-step instructions to set up the Provincial Bills Tracker with its stunning modern UI.
+Provincial Scrapy is a comprehensive system for scraping legislative bill data from all Canadian provinces and territories. The system uses multiple strategies including Firecrawl API integration and custom scrapers to ensure reliable data collection.
+
+## Architecture
+
+- **Python Scrapers**: Custom scrapers for each province with fallback mechanisms
+- **MCP Server**: Node.js server that orchestrates scraping jobs and integrates with Firecrawl
+- **NocoDB**: Database for storing bill information
+- **Redis**: Queue management for scraping jobs
+- **Frontend**: Next.js dashboard for viewing and managing bills
 
 ## Prerequisites
 
-- **Node.js** 18.x or higher
-- **npm** or **yarn**
-- **Python** 3.8+
-- **Git**
-- **Docker** & **Docker Compose** (optional, for production deployment)
+- Docker and Docker Compose
+- Python 3.10+ (for local development)
+- Node.js 18+ (for local development)
+- Firecrawl API key (optional but recommended)
 
-## Step 1: Clone the Repository
+## Quick Start
 
-```bash
-git clone https://github.com/ashish-tandon/ProvincialScrapy.git
-cd ProvincialScrapy
-```
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd ProvincialScrapy
+   ```
 
-## Step 2: Set Up the Frontend
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-### Install Frontend Dependencies
+3. **Start the development environment**
+   ```bash
+   docker-compose -f docker-compose.dev.yml up -d
+   ```
 
-```bash
-cd frontend
-npm install
-```
+4. **Wait for services to initialize**
+   ```bash
+   # Check health status
+   docker-compose -f docker-compose.dev.yml ps
+   
+   # View logs
+   docker-compose -f docker-compose.dev.yml logs -f
+   ```
 
-### Configure Environment Variables
+5. **Run initial scraping**
+   ```bash
+   # Scrape all provinces
+   docker exec provincial-scrapy-app-dev python src/unified_scraper.py
+   
+   # Scrape specific provinces
+   docker exec provincial-scrapy-app-dev python src/unified_scraper.py --provinces ontario quebec
+   ```
 
-Create a `.env.local` file in the frontend directory:
+## Configuration
 
-```bash
-# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_APP_NAME="Provincial Bills Tracker"
+### Environment Variables
 
-# Optional: Analytics
-NEXT_PUBLIC_GA_ID=your-google-analytics-id
-```
+Create a `.env` file with the following variables:
 
-### Start the Development Server
-
-```bash
-npm run dev
-```
-
-The frontend will be available at `http://localhost:3000`
-
-## Step 3: Set Up the Backend (MCP Server)
-
-### Install Backend Dependencies
-
-```bash
-cd ../mcp-server
-npm install
-```
-
-### Configure Environment Variables
-
-Create a `.env` file in the mcp-server directory:
-
-```bash
-# Server Configuration
-PORT=3001
-NODE_ENV=development
-
-# NocoDB Configuration
-NOCODB_API_URL=http://localhost:8080
-NOCODB_API_TOKEN=your-nocodb-token
-
-# Firecrawl Configuration
+```env
+# Firecrawl Configuration (optional but recommended)
 FIRECRAWL_API_KEY=your-firecrawl-api-key
 
-# JWT Secret
-JWT_SECRET=your-super-secret-jwt-key
+# NocoDB Configuration
+NOCODB_API_TOKEN=your-nocodb-token
 
-# Redis Configuration (for Bull Queue)
-REDIS_HOST=localhost
+# JWT Secret for Authentication
+JWT_SECRET=your-secure-jwt-secret
+
+# Redis Configuration (if using external Redis)
+REDIS_HOST=redis
 REDIS_PORT=6379
+REDIS_PASSWORD=
 ```
 
-### Start the Backend Server
+### Firecrawl Setup
+
+1. Sign up at [Firecrawl.dev](https://firecrawl.dev)
+2. Get your API key
+3. Add it to your `.env` file
+
+Without Firecrawl, the system will use fallback HTML scrapers which may be less reliable.
+
+## Services
+
+### 1. NocoDB (Port 8080)
+
+Database interface accessible at http://localhost:8080
+
+- Default credentials are set during first run
+- Tables are automatically created
+- Access the admin panel to view/manage data
+
+### 2. MCP Server (Port 3001)
+
+API server for managing scraping jobs
+
+- Health check: http://localhost:3001/health
+- API documentation: http://localhost:3001/api-docs
+
+### 3. Frontend (Port 3000)
+
+Next.js dashboard at http://localhost:3000
+
+- View bills by province
+- Search functionality
+- Real-time scraping status
+
+### 4. Redis (Port 6379)
+
+Job queue and caching
+
+## Running Scrapers
+
+### Using MCP Server (Recommended)
 
 ```bash
-npm start
+# Trigger scraping via API
+curl -X POST http://localhost:3001/api/scrape/all
+
+# Check job status
+curl http://localhost:3001/api/scrape/status/{jobId}
 ```
 
-The API will be available at `http://localhost:3001`
-
-## Step 4: Set Up NocoDB Database
-
-### Using Docker Compose
+### Direct Python Execution
 
 ```bash
-# From the root directory
-docker-compose up -d nocodb
+# Run unified scraper
+python src/unified_scraper.py
+
+# Run specific province
+python src/scrapers/ontario_enhanced.py
+
+# Run with debug logging
+python src/unified_scraper.py --debug
 ```
 
-### Manual Setup
+## Development
 
-1. Visit `http://localhost:8080`
-2. Create a new project called "ProvincialBills"
-3. Run the schema initialization script:
+### Adding New Province Scrapers
+
+1. Create new scraper in `src/scrapers/`
+2. Inherit from `BaseScraper`
+3. Implement `scrape_current_bills()` method
+4. Add to `SCRAPERS` dict in `__init__.py`
+
+Example:
+
+```python
+from .base_scraper import BaseScraper
+
+class NewProvinceScraper(BaseScraper):
+    def __init__(self):
+        super().__init__("New Province")
+        self.base_url = "https://legislature.newprovince.ca"
+        
+    def scrape_current_bills(self):
+        bills = []
+        soup = self.fetch_page(self.base_url)
+        # Implementation here
+        return bills
+```
+
+### Testing Scrapers
 
 ```bash
-cd scripts
-node init_nocodb_schema.js
+# Run tests
+docker exec provincial-scrapy-app-dev pytest
+
+# Test specific scraper
+docker exec provincial-scrapy-app-dev python -m pytest tests/test_ontario_scraper.py
 ```
 
-## Step 5: Set Up Python Scrapers
+## Troubleshooting
 
-### Create Python Virtual Environment
+### Common Issues
+
+1. **No bills found**
+   - Check if websites have changed structure
+   - Verify Firecrawl API key is valid
+   - Check logs: `docker-compose logs scraper-app`
+
+2. **Database connection errors**
+   - Ensure NocoDB is running: `docker-compose ps`
+   - Check NocoDB logs: `docker-compose logs nocodb`
+   - Verify API token is correct
+
+3. **MCP Server not responding**
+   - Check health endpoint
+   - Verify Redis is running
+   - Check for port conflicts
+
+### Debug Mode
+
+Enable debug logging:
 
 ```bash
-# From the root directory
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# In docker-compose.dev.yml
+environment:
+  - LOG_LEVEL=DEBUG
+
+# Or when running directly
+python src/unified_scraper.py --debug
 ```
 
-### Install Python Dependencies
+## Production Deployment
+
+1. **Use production docker-compose**
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+2. **Set secure environment variables**
+   - Generate strong JWT_SECRET
+   - Use production database
+   - Enable HTTPS
+
+3. **Set up monitoring**
+   - Configure health checks
+   - Set up log aggregation
+   - Monitor scraping success rates
+
+4. **Schedule regular scraping**
+   ```bash
+   # Add to crontab
+   0 */6 * * * cd /path/to/project && docker exec provincial-scrapy-app python src/unified_scraper.py
+   ```
+
+## API Endpoints
+
+### MCP Server API
+
+- `GET /health` - Health check
+- `POST /api/scrape/all` - Scrape all provinces
+- `POST /api/scrape/province/:province` - Scrape specific province
+- `GET /api/scrape/status/:jobId` - Check job status
+- `GET /api/bills/:province` - Get bills for province
+- `GET /api/search/bills?q=keyword` - Search bills
+- `GET /api/stats` - Get statistics
+
+### Authentication
 
 ```bash
-pip install -r requirements.txt
+# Register
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password","name":"User"}'
+
+# Login
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password"}'
 ```
 
-### Test Scrapers
+## Maintenance
+
+### Backup Database
 
 ```bash
-python src/main.py --province ontario --test
+# Backup NocoDB data
+docker exec provincial-scrapy-nocodb-dev sqlite3 /usr/app/data/nocodb.db ".backup /usr/app/data/backup.db"
+
+# Copy to host
+docker cp provincial-scrapy-nocodb-dev:/usr/app/data/backup.db ./backups/
 ```
 
-## Step 6: Production Deployment
+### Update Scrapers
 
-### Using Docker Compose
+1. Test changes locally
+2. Update scraper code
+3. Rebuild containers: `docker-compose build`
+4. Deploy updates: `docker-compose up -d`
 
-```bash
-# Build and start all services
-docker-compose -f docker-compose.prod.yml up -d
+## Support
 
-# View logs
-docker-compose -f docker-compose.prod.yml logs -f
-```
+For issues or questions:
 
-### Manual Production Setup
-
-1. **Build Frontend**:
-```bash
-cd frontend
-npm run build
-npm start
-```
-
-2. **Set up Nginx** (optional):
-```bash
-sudo cp nginx/nginx.prod.conf /etc/nginx/sites-available/provincial-tracker
-sudo ln -s /etc/nginx/sites-available/provincial-tracker /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-3. **Set up SSL** (using Let's Encrypt):
-```bash
-sudo certbot --nginx -d yourdomain.com
-```
-
-## Step 7: Running the Application
-
-### Development Mode
-
-1. **Terminal 1** - Frontend:
-```bash
-cd frontend
-npm run dev
-```
-
-2. **Terminal 2** - Backend:
-```bash
-cd mcp-server
-npm run dev
-```
-
-3. **Terminal 3** - NocoDB:
-```bash
-docker-compose up nocodb
-```
-
-### Production Mode
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## 🎨 Customization
-
-### Modify Theme Colors
-
-Edit `frontend/tailwind.config.ts`:
-- Change primary color from purple to your brand color
-- Adjust the color palette in the `:root` CSS variables
-
-### Add New Features
-
-1. Create new components in `frontend/components/`
-2. Add new pages in `frontend/app/`
-3. Use the existing UI components for consistency
-
-### Modify Scrapers
-
-Add new provincial scrapers in `src/scrapers/`:
-1. Extend the `BaseScraper` class
-2. Implement required methods
-3. Register in `src/main.py`
-
-## 📱 Features Overview
-
-- **Modern UI**: Beautiful, responsive design with dark mode
-- **Real-time Updates**: Live bill tracking with notifications
-- **Dashboard**: Interactive analytics and visualizations
-- **Authentication**: Secure login/register system
-- **Search**: Smart search with filters
-- **Responsive**: Works on all devices
-- **Animations**: Smooth Framer Motion animations
-- **Components**: Reusable UI component library
-
-## 🐛 Troubleshooting
-
-### Frontend Issues
-
-```bash
-# Clear Next.js cache
-rm -rf .next
-npm run dev
-
-# Reinstall dependencies
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Backend Issues
-
-```bash
-# Check logs
-docker-compose logs mcp-server
-
-# Restart services
-docker-compose restart
-```
-
-### Database Issues
-
-```bash
-# Reset database
-docker-compose down -v
-docker-compose up -d
-```
-
-## 📞 Support
-
-- **Issues**: https://github.com/ashish-tandon/ProvincialScrapy/issues
-- **Documentation**: Check the README files in each directory
-
-## 🎉 Success!
-
-Once everything is running:
-1. Visit `http://localhost:3000`
-2. Create an account
-3. Start tracking provincial bills!
-
-The application features:
-- Stunning modern UI with gradients and animations
-- Dark/light mode toggle
-- Real-time bill tracking
-- Beautiful dashboard with analytics
-- Responsive design for all devices
-- Smooth animations and transitions
+1. Check logs first
+2. Review troubleshooting section
+3. Check if website structures have changed
+4. Create an issue with:
+   - Error messages
+   - Logs
+   - Steps to reproduce

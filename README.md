@@ -1,113 +1,216 @@
-# Canadian Provincial Bills Scraper
+# Provincial Scrapy 🇨🇦
 
-A comprehensive web scraping tool for collecting legislative bill information from Canadian provincial legislatures.
+A comprehensive, production-ready system for scraping and tracking legislative bills across all Canadian provinces and territories. Built with resilience and scalability in mind.
 
-## Overview
+## 🌟 Key Features
 
-This project scrapes and aggregates bill information from multiple Canadian provinces including:
-- Ontario
-- British Columbia  
-- Alberta
-- Quebec
-- Saskatchewan
-- Manitoba
+- **Complete Provincial Coverage**: Automated scrapers for all Canadian provinces and territories
+- **Multiple Scraping Strategies**: Firecrawl API integration with intelligent fallback mechanisms
+- **Real-time Dashboard**: Modern Next.js interface for viewing and managing bills
+- **Robust Data Pipeline**: Queue-based scraping with retry logic and error handling
+- **RESTful API**: Complete API for programmatic access to bill data
+- **Advanced Search**: Full-text search across all bills with filtering
+- **Automatic Updates**: Scheduled scraping with configurable intervals
+- **Data Integrity**: Duplicate detection and data normalization
 
-## Features
+## 🏗 Architecture
 
-- **Multi-province support**: Scrapes bills from 6 Canadian provinces
-- **Asynchronous scraping**: Parallel processing for improved performance
-- **Structured data output**: CSV format with consistent schema
-- **Error handling**: Robust error handling and logging
-- **Extensible architecture**: Easy to add new provinces or data sources
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Next.js UI    │────▶│  MCP Server  │────▶│   NocoDB    │
+└─────────────────┘     └──────┬───────┘     └─────────────┘
+                               │                      ▲
+                               ▼                      │
+                        ┌──────────────┐              │
+                        │    Redis     │              │
+                        │  Job Queue   │              │
+                        └──────┬───────┘              │
+                               │                      │
+                               ▼                      │
+                        ┌──────────────┐              │
+                        │   Python     │──────────────┘
+                        │  Scrapers    │
+                        └──────────────┘
+```
 
-## Project Structure
+### Technology Stack
+
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
+- **API Server**: Node.js, Express, Bull Queue, Winston logging
+- **Database**: NocoDB (SQLite/PostgreSQL compatible)
+- **Scrapers**: Python 3.10+, BeautifulSoup4, Custom base classes
+- **Queue**: Redis for job management
+- **External Services**: Firecrawl API (optional)
+
+## 🚀 Quick Start
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ProvincialScrapy
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start with Docker Compose
+docker-compose -f docker-compose.dev.yml up -d
+
+# Run initial scraping
+docker exec provincial-scrapy-app-dev python src/unified_scraper.py
+
+# Access services
+# Frontend: http://localhost:3000
+# API: http://localhost:3001
+# Database: http://localhost:8080
+```
+
+## 📦 Project Structure
 
 ```
 ProvincialScrapy/
-├── src/
-│   ├── scrapers/
-│   │   ├── __init__.py
-│   │   ├── alberta_bills_scraper.py
-│   │   ├── bc_bills_scraper.py
-│   │   ├── ontario_bills_scraper.py
-│   │   ├── quebec_bills_scraper.py
-│   │   ├── saskatchewan_bills_scraper.py
-│   │   └── manitoba_bills_scraper.py
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   └── data_processor.py
-│   └── main.py
-├── data/
-│   └── .gitkeep
-├── requirements.txt
-├── .gitignore
-├── README.md
-└── setup.py
+├── frontend/              # Next.js frontend application
+│   ├── src/              
+│   │   ├── app/          # App router pages
+│   │   ├── components/   # Reusable UI components
+│   │   └── store/        # State management
+│   └── public/           # Static assets
+├── mcp-server/           # Node.js API server
+│   ├── services/         # Business logic
+│   ├── routes/           # API endpoints
+│   └── queues/           # Job processing
+├── src/                  # Python scrapers
+│   ├── scrapers/         # Province-specific scrapers
+│   │   ├── base_scraper.py    # Base class with common logic
+│   │   └── *_scraper.py       # Province scrapers
+│   └── unified_scraper.py     # Main orchestrator
+├── data/                 # Scraped data storage
+├── nginx/                # Reverse proxy config
+└── docker-compose.yml    # Container orchestration
 ```
 
-## Installation
+## 🔧 Configuration
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd ProvincialScrapy
+### Required Environment Variables
+
+```env
+# Firecrawl API (optional but recommended)
+FIRECRAWL_API_KEY=your-api-key
+
+# Database
+NOCODB_API_TOKEN=your-token
+
+# Security
+JWT_SECRET=your-secret-key
+
+# Redis (if external)
+REDIS_HOST=redis
+REDIS_PORT=6379
 ```
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+### Supported Provinces
 
-## Usage
+- ✅ Ontario (Enhanced)
+- ✅ British Columbia
+- ✅ Alberta
+- ✅ Quebec
+- ✅ Saskatchewan
+- ✅ Manitoba
+- 🔄 Nova Scotia (in progress)
+- 🔄 New Brunswick (in progress)
+- 🔄 Newfoundland and Labrador (in progress)
+- 🔄 Prince Edward Island (in progress)
+- 🔄 Northwest Territories (planned)
+- 🔄 Yukon (planned)
+- 🔄 Nunavut (planned)
 
-### Basic Usage
+## 📊 API Endpoints
 
+### Scraping Operations
+- `POST /api/scrape/all` - Trigger scraping for all provinces
+- `POST /api/scrape/province/:province` - Scrape specific province
+- `GET /api/scrape/status/:jobId` - Check scraping job status
+
+### Data Access
+- `GET /api/bills/:province` - Get bills by province
+- `GET /api/bills/:province/:billNumber` - Get specific bill details
+- `GET /api/search/bills?q=keyword` - Search across all bills
+- `GET /api/stats` - Get system statistics
+
+### Authentication
+- `POST /api/auth/register` - Create new account
+- `POST /api/auth/login` - User login
+- `GET /api/auth/verify` - Verify JWT token
+
+## 🛠 Development
+
+### Adding New Province Scrapers
+
+1. Create new file in `src/scrapers/`
+2. Inherit from `BaseScraper`
+3. Implement `scrape_current_bills()` method
+4. Register in `src/scrapers/__init__.py`
+
+Example:
 ```python
-from src.main import CanadianProvincialBillsScraper
+from .base_scraper import BaseScraper
 
-scraper = CanadianProvincialBillsScraper()
-bills = await scraper.scrape_all_provinces()
-scraper.save_to_database()
+class YukonScraper(BaseScraper):
+    def __init__(self):
+        super().__init__("Yukon")
+        self.base_url = "https://yukonassembly.ca"
+        
+    def scrape_current_bills(self):
+        # Implementation
+        pass
 ```
 
-### Command Line
+### Running Tests
 
 ```bash
-python src/main.py
+# All tests
+docker exec provincial-scrapy-app-dev pytest
+
+# Specific scraper
+docker exec provincial-scrapy-app-dev pytest tests/test_ontario_scraper.py
 ```
 
-## Data Schema
+## 🚀 Production Deployment
 
-Each bill record contains:
-- `province`: Province name
-- `bill_number`: Legislative bill number
-- `title`: Bill title
-- `sponsor`: Bill sponsor/author
-- `status`: Current legislative status
-- `session`: Legislative session
-- `bill_url`: URL to bill details
-- `scraped_date`: Timestamp of scraping
+```bash
+# Use production compose file
+docker-compose -f docker-compose.prod.yml up -d
 
-## Dependencies
+# Set up cron for regular scraping
+0 */6 * * * cd /app && docker exec app python src/unified_scraper.py
+```
 
-- `requests`: HTTP requests
-- `beautifulsoup4`: HTML parsing
-- `pandas`: Data manipulation
-- `aiohttp`: Asynchronous HTTP requests
-- `asyncio`: Asynchronous programming support
+## 📈 Monitoring
 
-## Contributing
+- Health endpoint: `GET /health`
+- Logs: `docker-compose logs -f [service-name]`
+- Database admin: http://localhost:8080
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-## License
+## 📝 License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## Status
+## 🙏 Acknowledgments
 
-This project is actively maintained and regularly updated to handle changes in provincial legislative websites.
+- [Firecrawl](https://firecrawl.dev) for intelligent web scraping
+- [NocoDB](https://nocodb.com) for the database layer
+- All provincial legislature websites for public data access
+
+## 📞 Support
+
+- 📧 Create an issue for bugs or feature requests
+- 📖 See [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md) for detailed setup
+- 💬 Join discussions in the Issues section
